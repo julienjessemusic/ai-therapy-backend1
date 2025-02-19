@@ -22,8 +22,11 @@ if not api_key:
     logger.error("OpenAI API key is not set!")
     raise ValueError("OpenAI API key is not set in environment variables!")
 
-# Initialize the OpenAI client (fixed initialization)
-client = openai.OpenAI(api_key=api_key)
+# Initialize the OpenAI client
+client = openai.OpenAI(
+    api_key=api_key,
+    base_url="https://api.openai.com/v1"
+)
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
