@@ -3,6 +3,11 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import openai
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -12,7 +17,12 @@ app = Flask(__name__)
 CORS(app)
 
 # Configure OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    logger.error("OpenAI API key is not set!")
+
+# Create OpenAI client instance
+client = openai.OpenAI(api_key=api_key)
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -28,13 +38,16 @@ SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not 
 def chat():
     try:
         data = request.json
-        user_message = data.get('message')
+        logger.info(f"Received request: {data}")
         
+        user_message = data.get('message')
         if not user_message:
+            logger.error("No message provided in request")
             return jsonify({'error': 'No message provided'}), 400
 
         # Create chat completion
-        response = openai.chat.completions.create(
+        logger.info("Sending request to OpenAI")
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": SYSTEM_MESSAGE},
@@ -46,16 +59,23 @@ def chat():
 
         # Extract the assistant's message
         ai_message = response.choices[0].message.content
+        logger.info("Received response from OpenAI")
 
         return jsonify({
             'message': ai_message,
             'status': 'success'
         })
 
-    except Exception as e:
-        print(f"Error: {str(e)}")
+    except openai.APIError as e:
+        logger.error(f"OpenAI API error: {str(e)}")
         return jsonify({
-            'error': 'Failed to process message',
+            'error': 'OpenAI service error. Please try again.',
+            'status': 'error'
+        }), 500
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({
+            'error': 'An unexpected error occurred',
             'status': 'error'
         }), 500
 
