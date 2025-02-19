@@ -16,13 +16,12 @@ api_key = os.environ.get('OPENAI_API_KEY')
 if not api_key:
     print("WARNING: OpenAI API key not found in environment variables!")
 else:
-    # Print first and last 4 characters of the API key for verification
     print(f"API Key loaded: {api_key[:4]}...{api_key[-4:]}")
 
 openai.api_key = api_key
 
 # Enhanced system message with specific therapeutic approaches
-SYSTEM_MESSAGE = """You are an AI therapy assistant trained in multiple therapeutic modalities. While you're not a replacement for a licensed therapist, you utilize evidence-based approaches including:
+SYSTEM_MESSAGE = """You are an empathetic AI therapy assistant trained in multiple therapeutic modalities. While you're not a replacement for a licensed therapist, you utilize evidence-based approaches including:
 
 THERAPEUTIC APPROACH:
 1. Cognitive Behavioral Therapy (CBT):
@@ -49,13 +48,30 @@ THERAPEUTIC APPROACH:
    - Promote non-judgmental acceptance
    - Guide brief meditation exercises
 
-RESPONSE GUIDELINES:
-- Always respond with empathy and understanding
-- Use a warm, professional tone
-- Keep responses concise but meaningful
-- Ask open-ended questions to promote reflection
-- Validate emotions while encouraging growth
-- Maintain appropriate boundaries
+CRITICAL GUIDELINES:
+1. Maintain Conversation Context:
+   - Remember and reference previous parts of the conversation
+   - Build upon earlier insights and discussions
+   - Notice patterns in user's responses
+   - Track emotional progress
+
+2. Response Quality:
+   - Provide substantive, meaningful responses
+   - Use therapeutic techniques appropriately
+   - Maintain a consistent therapeutic approach
+   - Demonstrate deep understanding of user's concerns
+
+3. Engagement:
+   - Ask relevant follow-up questions
+   - Reflect user's emotions accurately
+   - Validate experiences while promoting growth
+   - Guide toward practical insights
+
+4. Professional Boundaries:
+   - Maintain appropriate therapeutic distance
+   - Be clear about limitations as AI
+   - Refer to professional help when needed
+   - Focus on emotional support and coping strategies
 
 SAFETY PROTOCOLS:
 - NEVER give medical advice
@@ -70,41 +86,57 @@ CONVERSATION STRUCTURE:
 3. Explore underlying thoughts/beliefs
 4. Offer appropriate therapeutic techniques
 5. Encourage actionable steps
-6. Maintain hope and optimism"""
+6. Maintain hope and optimism
+
+Remember: You must maintain conversation context and provide high-quality, consistent therapeutic support throughout the entire session."""
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
-        # Verify API key is set
         if not api_key:
             return jsonify({
-                'error': 'OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.',
+                'error': 'OpenAI API key is not configured',
                 'status': 'error'
             }), 500
 
         data = request.json
         user_message = data.get('message')
+        message_history = data.get('history', [])
         
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
 
-        print(f"Sending request to OpenAI with message: {user_message[:50]}...")
-        print(f"Using API key ending in: ...{api_key[-4:]}")
+        # Construct messages with history
+        messages = [
+            {"role": "system", "content": SYSTEM_MESSAGE}
+        ]
         
-        # Create chat completion
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": SYSTEM_MESSAGE},
-                {"role": "user", "content": user_message}
-            ],
+        # Add message history
+        for msg in message_history:
+            messages.append({
+                "role": msg['role'],
+                "content": msg['content']
+            })
+            
+        # Add current message
+        messages.append({
+            "role": "user",
+            "content": user_message
+        })
+
+        print(f"Sending request to OpenAI with message history length: {len(messages)}")
+        
+        # Create chat completion with context
+        response = openai.chat.completions.create(
+            model="gpt-4",  # Using GPT-4 for better context handling
+            messages=messages,
             temperature=0.7,
-            max_tokens=300
+            max_tokens=500  # Increased token limit for more detailed responses
         )
 
         # Extract the assistant's message
-        ai_message = response.choices[0].message['content']
-        print(f"Received response from OpenAI: {ai_message[:50]}...")
+        ai_message = response.choices[0].message.content
+        print(f"Received response from OpenAI: {ai_message[:100]}...")
 
         return jsonify({
             'message': ai_message,
@@ -113,14 +145,13 @@ def chat():
 
     except openai.error.OpenAIError as e:
         error_message = str(e)
-        print(f"Full OpenAI Error: {error_message}")
+        print(f"OpenAI Error: {error_message}")
         
         if "exceeded your current quota" in error_message:
-            error_message = "The OpenAI API key has exceeded its quota. Please check your billing details at https://platform.openai.com/account/billing. You may need to wait a few minutes for billing changes to take effect."
+            error_message = "The OpenAI API key has exceeded its quota. Please check your billing details."
         elif "invalid api key" in error_message.lower():
-            error_message = "The OpenAI API key is invalid. Please check your API key at https://platform.openai.com/api-keys"
+            error_message = "The OpenAI API key is invalid. Please check your API key configuration."
         
-        print(f"OpenAI Error: {error_message}")
         return jsonify({
             'error': error_message,
             'status': 'error'
@@ -129,7 +160,7 @@ def chat():
     except Exception as e:
         print(f"Unexpected Error: {str(e)}")
         return jsonify({
-            'error': 'An unexpected error occurred. Please try again.',
+            'error': 'An unexpected error occurred',
             'status': 'error'
         }), 500
 
