@@ -11,8 +11,8 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Configure OpenAI - using the new client initialization
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# Configure OpenAI - using environment variable directly
+client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -33,7 +33,7 @@ def chat():
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
 
-        # Create chat completion using the new client
+        # Create chat completion using the client
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
