@@ -3,11 +3,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import openai
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -17,16 +12,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configure OpenAI
-api_key = os.getenv('OPENAI_API_KEY')
-if not api_key:
-    logger.error("OpenAI API key is not set!")
-    raise ValueError("OpenAI API key is not set in environment variables!")
-
-# Initialize the OpenAI client
-client = openai.OpenAI(
-    api_key=api_key,
-    base_url="https://api.openai.com/v1"
-)
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -42,16 +28,13 @@ SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not 
 def chat():
     try:
         data = request.json
-        logger.info("Received request")
-        
         user_message = data.get('message')
+        
         if not user_message:
-            logger.error("No message provided in request")
             return jsonify({'error': 'No message provided'}), 400
 
-        # Create chat completion using the client instance
-        logger.info("Sending request to OpenAI")
-        response = client.chat.completions.create(
+        # Create chat completion
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": SYSTEM_MESSAGE},
@@ -63,7 +46,6 @@ def chat():
 
         # Extract the assistant's message
         ai_message = response.choices[0].message.content
-        logger.info("Received response from OpenAI")
 
         return jsonify({
             'message': ai_message,
@@ -71,9 +53,9 @@ def chat():
         })
 
     except Exception as e:
-        logger.error(f"Error in chat endpoint: {str(e)}")
+        print(f"Error: {str(e)}")
         return jsonify({
-            'error': 'An error occurred while processing your request',
+            'error': 'Failed to process message',
             'status': 'error'
         }), 500
 
