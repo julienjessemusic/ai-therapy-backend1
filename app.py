@@ -20,9 +20,10 @@ CORS(app)
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     logger.error("OpenAI API key is not set!")
+    raise ValueError("OpenAI API key is not set in environment variables!")
 
-# Create OpenAI client instance
-client = openai.OpenAI(api_key=api_key)
+# Set the API key directly on the openai module
+openai.api_key = api_key
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -38,16 +39,16 @@ SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not 
 def chat():
     try:
         data = request.json
-        logger.info(f"Received request: {data}")
+        logger.info("Received request")
         
         user_message = data.get('message')
         if not user_message:
             logger.error("No message provided in request")
             return jsonify({'error': 'No message provided'}), 400
 
-        # Create chat completion
+        # Create chat completion using the module-level client
         logger.info("Sending request to OpenAI")
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": SYSTEM_MESSAGE},
@@ -66,16 +67,10 @@ def chat():
             'status': 'success'
         })
 
-    except openai.APIError as e:
-        logger.error(f"OpenAI API error: {str(e)}")
-        return jsonify({
-            'error': 'OpenAI service error. Please try again.',
-            'status': 'error'
-        }), 500
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error in chat endpoint: {str(e)}")
         return jsonify({
-            'error': 'An unexpected error occurred',
+            'error': 'An error occurred while processing your request',
             'status': 'error'
         }), 500
 
