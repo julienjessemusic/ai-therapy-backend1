@@ -1,11 +1,10 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 import os
 import logging
 from datetime import datetime
-import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +21,7 @@ CORS(app)
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     logger.error("OpenAI API key is not set!")
-client = OpenAI(api_key=api_key)
+openai.api_key = api_key
 
 # Enhanced system message for more authentic therapy simulation
 SYSTEM_MESSAGE = """You are Dr. Sarah Matthews, a highly experienced clinical psychologist with over 15 years of practice. You specialize in integrative therapy, combining various evidence-based approaches to provide personalized care. Your therapeutic style is characterized by:
@@ -68,7 +67,7 @@ def chat():
             {"role": "system", "content": SYSTEM_MESSAGE}
         ]
         
-        # Add message history
+        # Add message history without timestamps
         for msg in message_history:
             messages.append({
                 "role": msg['role'],
@@ -81,38 +80,33 @@ def chat():
             "content": user_message
         })
 
-        # Create chat completion with streaming using the new API
-        stream = client.chat.completions.create(
+        logger.info(f"Sending request to OpenAI with message history length: {len(messages)}")
+        
+        # Create chat completion with enhanced therapeutic context
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7,
             max_tokens=500,
-            presence_penalty=0.6,
-            frequency_penalty=0.5,
-            stream=True
+            presence_penalty=0.6,  # Encourage more diverse responses
+            frequency_penalty=0.5   # Reduce repetition
         )
 
-        def generate():
-            collected_message = ""
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    collected_message += content
-                    # Send each chunk with SSE format
-                    yield f"data: {json.dumps({'content': content, 'done': False})}\n\n"
-            
-            # Send final message with done flag
-            yield f"data: {json.dumps({'content': '', 'done': True, 'fullMessage': collected_message})}\n\n"
+        # Extract and log the assistant's message
+        ai_message = response.choices[0].message['content']
+        logger.info(f"Received response from OpenAI: {ai_message[:100]}...")
 
-        return Response(
-            generate(),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
-            }
-        )
+        return jsonify({
+            'message': ai_message,
+            'status': 'success'
+        })
 
+    except openai.error.OpenAIError as e:
+        logger.error(f"OpenAI API error: {str(e)}")
+        return jsonify({
+            'error': 'OpenAI service error. Please try again.',
+            'status': 'error'
+        }), 500
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return jsonify({
