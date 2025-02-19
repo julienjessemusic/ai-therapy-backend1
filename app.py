@@ -22,8 +22,8 @@ if not api_key:
     logger.error("OpenAI API key is not set!")
     raise ValueError("OpenAI API key is not set in environment variables!")
 
-# Set the API key directly on the openai module
-openai.api_key = api_key
+# Initialize the OpenAI client (fixed initialization)
+client = openai.Client(api_key=api_key)
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -46,9 +46,9 @@ def chat():
             logger.error("No message provided in request")
             return jsonify({'error': 'No message provided'}), 400
 
-        # Create chat completion using the module-level client
+        # Create chat completion using the client instance
         logger.info("Sending request to OpenAI")
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": SYSTEM_MESSAGE},
