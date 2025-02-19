@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError
+import openai
 import os
 
 # Load environment variables
@@ -19,7 +19,7 @@ else:
     # Print first and last 4 characters of the API key for verification
     print(f"API Key loaded: {api_key[:4]}...{api_key[-4:]}")
 
-client = OpenAI(api_key=api_key)
+openai.api_key = api_key
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
@@ -51,7 +51,7 @@ def chat():
         print(f"Using API key ending in: ...{api_key[-4:]}")
         
         # Create chat completion
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": SYSTEM_MESSAGE},
@@ -62,7 +62,7 @@ def chat():
         )
 
         # Extract the assistant's message
-        ai_message = response.choices[0].message.content
+        ai_message = response.choices[0].message['content']
         print(f"Received response from OpenAI: {ai_message[:50]}...")
 
         return jsonify({
@@ -70,7 +70,7 @@ def chat():
             'status': 'success'
         })
 
-    except OpenAIError as e:
+    except openai.error.OpenAIError as e:
         error_message = str(e)
         print(f"Full OpenAI Error: {error_message}")
         
