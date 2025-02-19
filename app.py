@@ -23,7 +23,7 @@ if not api_key:
     raise ValueError("OpenAI API key is not set in environment variables!")
 
 # Initialize the OpenAI client (fixed initialization)
-client = openai.Client(api_key=api_key)
+client = openai.OpenAI(api_key=api_key)
 
 # System message to guide the AI's responses
 SYSTEM_MESSAGE = """You are a supportive AI therapy assistant. While you're not a replacement for a licensed therapist:
